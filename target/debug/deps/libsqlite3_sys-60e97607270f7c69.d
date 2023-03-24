@@ -1,0 +1,11 @@
+D:\Saarland University\Hands on Networking (Block Course February  March 2023)\Project\LLDPA\LLDPA\target\debug\deps\libsqlite3_sys-60e97607270f7c69.rmeta: C:\Users\Abhishek\ Shinde\.cargo\registry\src\github.com-1ecc6299db9ec823\libsqlite3-sys-0.25.2\src\lib.rs C:\Users\Abhishek\ Shinde\.cargo\registry\src\github.com-1ecc6299db9ec823\libsqlite3-sys-0.25.2\src\error.rs D:\Saarland\ University\Hands\ on\ Networking\ (Block\ Course\ February\ \ March\ 2023)\Project\LLDPA\LLDPA\target\debug\build\libsqlite3-sys-36998a5c1b7f2941\out/bindgen.rs
+
+D:\Saarland University\Hands on Networking (Block Course February  March 2023)\Project\LLDPA\LLDPA\target\debug\deps\liblibsqlite3_sys-60e97607270f7c69.rlib: C:\Users\Abhishek\ Shinde\.cargo\registry\src\github.com-1ecc6299db9ec823\libsqlite3-sys-0.25.2\src\lib.rs C:\Users\Abhishek\ Shinde\.cargo\registry\src\github.com-1ecc6299db9ec823\libsqlite3-sys-0.25.2\src\error.rs D:\Saarland\ University\Hands\ on\ Networking\ (Block\ Course\ February\ \ March\ 2023)\Project\LLDPA\LLDPA\target\debug\build\libsqlite3-sys-36998a5c1b7f2941\out/bindgen.rs
+
+D:\Saarland University\Hands on Networking (Block Course February  March 2023)\Project\LLDPA\LLDPA\target\debug\deps\libsqlite3_sys-60e97607270f7c69.d: C:\Users\Abhishek\ Shinde\.cargo\registry\src\github.com-1ecc6299db9ec823\libsqlite3-sys-0.25.2\src\lib.rs C:\Users\Abhishek\ Shinde\.cargo\registry\src\github.com-1ecc6299db9ec823\libsqlite3-sys-0.25.2\src\error.rs D:\Saarland\ University\Hands\ on\ Networking\ (Block\ Course\ February\ \ March\ 2023)\Project\LLDPA\LLDPA\target\debug\build\libsqlite3-sys-36998a5c1b7f2941\out/bindgen.rs
+
+C:\Users\Abhishek\ Shinde\.cargo\registry\src\github.com-1ecc6299db9ec823\libsqlite3-sys-0.25.2\src\lib.rs:
+C:\Users\Abhishek\ Shinde\.cargo\registry\src\github.com-1ecc6299db9ec823\libsqlite3-sys-0.25.2\src\error.rs:
+D:\Saarland\ University\Hands\ on\ Networking\ (Block\ Course\ February\ \ March\ 2023)\Project\LLDPA\LLDPA\target\debug\build\libsqlite3-sys-36998a5c1b7f2941\out/bindgen.rs:
+
+# env-dep:OUT_DIR=D:\\Saarland University\\Hands on Networking (Block Course February  March 2023)\\Project\\LLDPA\\LLDPA\\target\\debug\\build\\libsqlite3-sys-36998a5c1b7f2941\\out
