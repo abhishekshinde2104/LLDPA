@@ -141,7 +141,20 @@ impl ManagementAddressTLV {
     /// Panics if the provided TLV contains errors (e.g. has the wrong type).
     pub fn new_from_bytes(bytes: &[u8]) -> ManagementAddressTLV {
         // TODO: Implement
-        todo!()
+        let mut type_value = bytes[0];
+        type_value = bytes[0] & 0b11111110;
+
+        let last_bit = bytes[0] & 0b00000001;
+
+        type_value = type_value >> 1;
+
+        let mut length_value = bytes[1] as u16;
+
+        if last_bit != 0{
+            length_value= length_value + 256;
+        }
+
+        ManagementAddressTLV::new(address, interface_number, ifsubtype, oid)
     }
 
     /// Return the length of the TLV value
