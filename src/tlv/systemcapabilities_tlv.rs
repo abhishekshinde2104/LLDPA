@@ -122,7 +122,7 @@ impl SystemCapabilitiesTLV {
         // TODO: Implement
         SystemCapabilitiesTLV {
             tlv_type: TlvType::SystemCapabilities,
-            value: ((supported << 16) | enabled) as u32,
+            value: (( (supported as u32) << 16 ) | (enabled as u32)) as u32,
         }
     }
 
@@ -144,9 +144,9 @@ impl SystemCapabilitiesTLV {
             length_value= length_value + 256;
         }
 
-        let b2 = (bytes[2] << 8) as u16;
+        let b2 = ((bytes[2] as u16) << 8) as u16;
         let b3 = bytes[3] as u16;
-        let b4= (bytes[4] << 8) as u16;
+        let b4= ((bytes[4] as u16) << 8) as u16;
         let b5= bytes[5] as u16;
 
         let sys_cap = (b2 | b3) as u16;

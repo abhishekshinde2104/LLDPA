@@ -196,10 +196,10 @@ impl ManagementAddressTLV {
 
         let mut if_num = 0 as u32;
 
-        if_num = (inf_num_oct[0]<<24) as u32;
-        if_num = if_num | (inf_num_oct[1]<<16) as u32;
-        if_num = if_num | (inf_num_oct[2]<<8) as u32;
-        if_num = if_num | (inf_num_oct[3]) as u32;
+        if_num = ((inf_num_oct[0] as u32 )<<24) as u32;
+        if_num = if_num | ((inf_num_oct[1] as u32)<<16) as u32;
+        if_num = if_num | ((inf_num_oct[2] as u32)<<8) as u32;
+        if_num = if_num | ((inf_num_oct[3] as u32)) as u32;
 
 
         let obj_str_len_index = inf_num_oct_index + 4;

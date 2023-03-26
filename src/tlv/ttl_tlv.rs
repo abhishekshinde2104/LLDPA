@@ -65,7 +65,7 @@ impl TtlTLV {
 
         let mut v = 0 as u16;
 
-        v = ((bytes[2] << 8) as u16) | v;
+        v = (( (bytes[2] as u16) << 8) as u16) | v;
         v = (bytes[3] as u16) | v;
 
         TtlTLV::new(v)
