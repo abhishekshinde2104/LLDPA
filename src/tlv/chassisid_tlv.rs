@@ -186,6 +186,7 @@ impl ChassisIdTLV {
         let chassis_id_value;
 
         if (subtype_value.clone() as u8) == 4{
+            assert_eq!(bytes[3..].len(), 6);
             mac_value = bytes[3..].to_vec();
             chassis_id_value = ChassisIdValue::Mac(mac_value);
         }
@@ -194,13 +195,15 @@ impl ChassisIdTLV {
             let ip_first_byte = bytes[3];
 
             if ip_first_byte == 1{
-                let ip_addr_bytes:[u8;4] = bytes[4..8].try_into().unwrap();
+                assert_eq!(bytes[4..].len(), 4);
+                let ip_addr_bytes:[u8;4] = bytes[4..].try_into().unwrap();
                 ip_addr = IpAddr::from(ip_addr_bytes);
                 chassis_id_value = ChassisIdValue::IpAddress(ip_addr);
                 
             }
             else if ip_first_byte == 2{
-                let ip_addr_bytes:[u8;16] = bytes[4..20].try_into().unwrap();
+                assert_eq!(bytes[4..].len(), 16);
+                let ip_addr_bytes:[u8;16] = bytes[4..].try_into().unwrap();
                 ip_addr = IpAddr::from(ip_addr_bytes);
                 chassis_id_value = ChassisIdValue::IpAddress(ip_addr);    
             
@@ -265,10 +268,12 @@ impl ChassisIdTLV {
             ChassisIdValue::Other(other) => other.as_bytes().to_vec(),
         };
 
-        value_rep = match &self.value {
-            ChassisIdValue::IpAddress(IpAddr::V4(_)) => value_rep.insert(0, 1),
-            ChassisIdValue::IpAddress(IpAddr::V6(_)) => value_rep.insert(0, 2),
-            _ => value_rep
+        if let ChassisIdValue::IpAddress(IpAddr::V4(_)) = self.value{
+            value_rep.insert(0, 1)
+        } 
+            
+        if let ChassisIdValue::IpAddress(IpAddr::V6(_)) = self.value {
+            value_rep.insert(0, 2);
         }
 
         let mut chassis_id_rep = vec![type_rep,len_rep,subtype_rep];
