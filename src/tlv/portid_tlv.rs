@@ -180,6 +180,7 @@ impl PortIdTLV {
         let port_id_value;
 
         if (subtype_value.clone() as u8) == 3{
+            assert_eq!(bytes[3..].len(), 6);
             mac_value = bytes[3..].to_vec();
             port_id_value = PortIdValue::Mac(mac_value);
         }
@@ -188,13 +189,15 @@ impl PortIdTLV {
             let ip_first_byte = bytes[3];
 
             if ip_first_byte == 1{
+                assert_eq!(bytes[4..].len(), 4);
                 let ip_addr_bytes:[u8;4] = bytes[4..8].try_into().unwrap();
                 ip_addr = IpAddr::from(ip_addr_bytes);
                 port_id_value = PortIdValue::IpAddress(ip_addr);
                 
             }
             else if ip_first_byte == 2{
-                let ip_addr_bytes:[u8;16] = bytes[4..20].try_into().unwrap();
+                assert_eq!(bytes[4..].len(), 16);
+                let ip_addr_bytes:[u8;16] = bytes[4..].try_into().unwrap();
                 ip_addr = IpAddr::from(ip_addr_bytes);
                 port_id_value = PortIdValue::IpAddress(ip_addr);    
             
@@ -220,8 +223,8 @@ impl PortIdTLV {
         let value_len = match &self.value{
                 PortIdValue::Mac(_) => 6,
                 PortIdValue::IpAddress(ip_addr) => match ip_addr{
-                    IpAddr::V4(_) => 4,
-                    IpAddr::V6(_) => 16,
+                    IpAddr::V4(_) => 5,
+                    IpAddr::V6(_) => 17,
                 },
                 PortIdValue::Other(other) => other.len(),
         };
@@ -258,6 +261,14 @@ impl PortIdTLV {
             } ,
             PortIdValue::Other(other) => other.as_bytes().to_vec(),
         };
+
+        if let PortIdValue::IpAddress(IpAddr::V4(_)) = self.value{
+            value_rep.insert(0, 1)
+        } 
+            
+        if let PortIdValue::IpAddress(IpAddr::V6(_)) = self.value {
+            value_rep.insert(0, 2);
+        }
 
         let mut port_id_rep = vec![type_rep,len_rep,subtype_rep];
         port_id_rep.append(&mut value_rep);
