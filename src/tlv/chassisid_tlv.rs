@@ -265,6 +265,12 @@ impl ChassisIdTLV {
             ChassisIdValue::Other(other) => other.as_bytes().to_vec(),
         };
 
+        value_rep = match &self.value {
+            ChassisIdValue::IpAddress(IpAddr::V4(_)) => value_rep.insert(0, 1),
+            ChassisIdValue::IpAddress(IpAddr::V6(_)) => value_rep.insert(0, 2),
+            _ => value_rep
+        }
+
         let mut chassis_id_rep = vec![type_rep,len_rep,subtype_rep];
         chassis_id_rep.append(&mut value_rep);
 
