@@ -253,7 +253,7 @@ impl ChassisIdTLV {
             type_rep = type_rep | 0b000000001;
         }
 
-        let len_rep = (self.len() & 0xFF) as u8;
+        let len_rep = (self.len() + 1 & 0xFF) as u8;
 
         let subtype_rep = self.subtype.clone() as u8;
 
