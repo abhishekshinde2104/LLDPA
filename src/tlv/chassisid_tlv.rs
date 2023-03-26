@@ -229,8 +229,8 @@ impl ChassisIdTLV {
         let value_len = match &self.value{
                 ChassisIdValue::Mac(_) => 6,
                 ChassisIdValue::IpAddress(ip_addr) => match ip_addr{
-                    IpAddr::V4(_) => 4,
-                    IpAddr::V6(_) => 16,
+                    IpAddr::V4(_) => 5,
+                    IpAddr::V6(_) => 17,
                 },
                 ChassisIdValue::Other(other) => other.len(),
         };
@@ -253,7 +253,7 @@ impl ChassisIdTLV {
             type_rep = type_rep | 0b000000001;
         }
 
-        let len_rep = (self.len() + 1 & 0xFF) as u8;
+        let len_rep = (self.len() & 0xFF) as u8;
 
         let subtype_rep = self.subtype.clone() as u8;
 
