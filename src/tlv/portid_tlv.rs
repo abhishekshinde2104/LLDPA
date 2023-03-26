@@ -127,8 +127,22 @@ impl Display for PortIdTLV {
     /// Write a printable representation of the TLV object.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: Implement
-        // write!(f, "PortIdTLV({}, \"{}\")",self.subtype,self.value)
-        todo!()
+        let value = match &self.value {
+            PortIdValue::Mac(mac) => {
+                let mut res = String::new();
+                for (ind, i) in mac.iter().enumerate() {
+                    res.push_str(&format!("{:X}", i));
+                    if ind != mac.len() - 1 {
+                        res.push_str(&":");
+                    }
+                }
+                res
+            }
+            PortIdValue::Other(s) => s.clone(),
+            PortIdValue::IpAddress(ip_addr) => ip_addr.to_string(),
+        };
+
+        write!(f,"ChassisIdTLV({}, \"{}\")",self.subtype.clone() as u8,value)
     }
 }
 
