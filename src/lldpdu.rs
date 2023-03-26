@@ -20,6 +20,8 @@ use std::fmt::Display;
 #[derive(Debug, Clone)]
 pub struct Lldpdu {
     // TODO: Implement
+    tlvs: Vec<Tlv>,
+
 }
 
 impl Display for Lldpdu {

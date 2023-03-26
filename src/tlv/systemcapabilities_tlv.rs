@@ -213,10 +213,10 @@ impl SystemCapabilitiesTLV {
 
         let len_rep = (self.len() & 0xFF) as u8;
 
-        let byte1 = (self.value & 0xFF) as u8;
-        let byte2 = ((self.value & 0xFF00) >> 8) as u8;
-        let byte3 = ((self.value & 0xFF0000) >> 16) as u8;
-        let byte4 = ((self.value & 0xFF000000) >> 24) as u8;
+        let byte4 = (self.value & 0xFF) as u8;
+        let byte3 = ((self.value & 0xFF00) >> 8) as u8;
+        let byte2 = ((self.value & 0xFF0000) >> 16) as u8;
+        let byte1 = ((self.value & 0xFF000000) >> 24) as u8;
 
         vec![type_rep,len_rep,byte1,byte2,byte3,byte4]
 

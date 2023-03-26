@@ -1,6 +1,6 @@
 use crate::tlv::TlvType;
 
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::fmt::Display;
 use std::net::IpAddr;
 
@@ -148,9 +148,9 @@ impl ChassisIdTLV {
     pub fn new(subtype: ChassisIdSubType, id: ChassisIdValue) -> ChassisIdTLV {
         // TODO: Implement
         ChassisIdTLV {
-            tlv_type: todo!(),
-            subtype: todo!(),
-            value: todo!(),
+            tlv_type: TlvType::ChassisId,
+            subtype: subtype,
+            value: id,
         }
     }
 
@@ -159,19 +159,117 @@ impl ChassisIdTLV {
     /// Panics if the provided TLV contains errors (e.g. has the wrong type).
     pub fn new_from_bytes(bytes: &[u8]) -> ChassisIdTLV {
         // TODO: Implement
-        todo!()
+        let mut type_value: u8 = bytes[0];
+        type_value = bytes[0] & 0b11111110;
+
+        let last_bit = bytes[0] & 0b00000001;
+
+        type_value = type_value >> 1;
+
+        let mut length_value = bytes[1] as u16;
+
+        if last_bit != 0{
+            length_value= length_value + 256;
+        }
+
+        let subtype_value:ChassisIdSubType = match bytes[2].try_into(){
+            Ok(subtype) => subtype,
+            Err(_) => panic!("Chassis Id subtype Panic"),
+        };
+
+        let mac_value;
+
+        let ip_addr;
+
+        let other_value:String;
+
+        let chassis_id_value;
+
+        if (subtype_value.clone() as u8) == 4{
+            mac_value = bytes[3..].to_vec();
+            chassis_id_value = ChassisIdValue::Mac(mac_value);
+        }
+
+        else if (subtype_value.clone() as u8) == 5{
+            let ip_first_byte = bytes[3];
+
+            if ip_first_byte == 1{
+                let ip_addr_bytes:[u8;4] = bytes[4..8].try_into().unwrap();
+                ip_addr = IpAddr::from(ip_addr_bytes);
+                chassis_id_value = ChassisIdValue::IpAddress(ip_addr);
+                
+            }
+            else if ip_first_byte == 2{
+                let ip_addr_bytes:[u8;16] = bytes[4..20].try_into().unwrap();
+                ip_addr = IpAddr::from(ip_addr_bytes);
+                chassis_id_value = ChassisIdValue::IpAddress(ip_addr);    
+            
+            } 
+            else {
+                panic!("Port Id IP Address Error!")
+            }
+        }
+
+        else {
+            other_value = String::from_utf8(bytes[3..].to_vec()).unwrap();
+            chassis_id_value = ChassisIdValue::Other(other_value);
+        }
+
+        ChassisIdTLV::new(subtype_value, chassis_id_value)
     }
 
     /// Return the length of the TLV value
     pub fn len(&self) -> usize {
         // TODO: Implement
-        todo!()
+        let mut total_len = 1 as usize;
+
+        let value_len = match &self.value{
+                ChassisIdValue::Mac(_) => 6,
+                ChassisIdValue::IpAddress(ip_addr) => match ip_addr{
+                    IpAddr::V4(_) => 4,
+                    IpAddr::V6(_) => 16,
+                },
+                ChassisIdValue::Other(other) => other.len(),
+        };
+
+            total_len = total_len + value_len;
+
+            total_len
     }
 
     /// Return the byte representation of the TLV.
     pub fn bytes(&self) -> Vec<u8> {
         // TODO: Implement
-        todo!()
+        let mut type_rep = self.tlv_type as u8;
+
+        type_rep = type_rep << 1;
+
+        let last_bit_set = self.len() & 0b100000000;
+
+        if last_bit_set !=0 {
+            type_rep = type_rep | 0b000000001;
+        }
+
+        let len_rep = (self.len() & 0xFF) as u8;
+
+        let subtype_rep = self.subtype.clone() as u8;
+
+        //let value_rep = self.len() as u8;
+
+        let mut value_rep = match &self.value{
+            ChassisIdValue::Mac(mac_addr) => mac_addr.clone(),
+            ChassisIdValue::IpAddress(ip_addr) => match ip_addr {
+                IpAddr::V4(ip_addr) => ip_addr.octets().to_vec(),
+                IpAddr::V6(ip_addr) => ip_addr.octets().to_vec(),
+            } ,
+            ChassisIdValue::Other(other) => other.as_bytes().to_vec(),
+        };
+
+        let mut chassis_id_rep = vec![type_rep,len_rep,subtype_rep];
+        chassis_id_rep.append(&mut value_rep);
+
+        chassis_id_rep
+
     }
 }
 

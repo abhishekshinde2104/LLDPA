@@ -1,7 +1,7 @@
 use crate::tlv::TlvType;
 
 use bytes::{Buf, BufMut};
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::fmt::Display;
 use std::net::IpAddr;
 
@@ -103,6 +103,8 @@ impl TryFrom<u8> for IFNumberingSubtype {
 pub struct ManagementAddressTLV {
     /// The type of the TLV
     pub tlv_type: TlvType,
+    ///The interface number
+    pub interface_number: u32,
     /// The interface numbering subtype
     pub subtype: IFNumberingSubtype,
     /// The management address
@@ -130,6 +132,7 @@ impl ManagementAddressTLV {
         // TODO: Implement
         ManagementAddressTLV {
             tlv_type: TlvType::ManagementAddress,
+            interface_number: interface_number,
             subtype: ifsubtype,
             value: address,
             oid: oid,
@@ -154,19 +157,141 @@ impl ManagementAddressTLV {
             length_value= length_value + 256;
         }
 
-        ManagementAddressTLV::new(address, interface_number, ifsubtype, oid)
+        let mng_add_str_len = bytes[2];
+
+        let mng_add_subtype = bytes[3];
+
+        let mut ip_addr = IpAddr::from([0,0,0,0]);
+
+        //We get ip address from bytes
+            if mng_add_subtype == 1{
+                if mng_add_str_len == 5{
+                    let ip_addr_bytes:[u8;4] = bytes[4..8].try_into().unwrap();
+                    ip_addr = IpAddr::from(ip_addr_bytes);
+                }
+                else {
+                    panic!("Management Address IPv4 Address Error!")
+                }
+            }
+            else if mng_add_subtype == 2 {
+                if mng_add_str_len == 17{
+                    let ip_addr_bytes:[u8;16] = bytes[4..20].try_into().unwrap();
+                    ip_addr = IpAddr::from(ip_addr_bytes);
+                }
+                else {
+                    panic!("Management Address IPv6 Address Error!")
+                }
+            }
+            else {
+                panic!("Management Address IP Address Error!")
+            }
+
+        let inf_num_subtype_index = (2 + mng_add_str_len) as usize;
+
+        let inf_num_subtype = IFNumberingSubtype::try_from(bytes[inf_num_subtype_index]).unwrap();
+
+        let inf_num_oct_index = inf_num_subtype_index + 1;
+
+        let inf_num_oct = &bytes[inf_num_oct_index..inf_num_oct_index+4];
+
+        let mut if_num = 0 as u32;
+
+        if_num = (inf_num_oct[0]<<24) as u32;
+        if_num = if_num | (inf_num_oct[1]<<16) as u32;
+        if_num = if_num | (inf_num_oct[2]<<8) as u32;
+        if_num = if_num | (inf_num_oct[3]) as u32;
+
+
+        let obj_str_len_index = inf_num_oct_index + 4;
+
+        let obj_str_len = bytes[obj_str_len_index];
+
+        let obj_iden_index = obj_str_len_index + 1;
+
+        let obj_iden = bytes[obj_iden_index..].to_vec();
+
+
+        ManagementAddressTLV::new(ip_addr, if_num, inf_num_subtype, obj_iden)
     }
 
     /// Return the length of the TLV value
     pub fn len(&self) -> usize {
         // TODO: Implement
-        todo!()
+        let mut total_len = 8 as usize;
+
+
+        let mut ip_addr_len = 0 ;
+
+        if self.value.is_ipv4(){
+            ip_addr_len = ip_addr_len + 4;
+        }
+        else if self.value.is_ipv6(){
+            ip_addr_len = ip_addr_len + 16;
+        }
+        else {
+            panic!("Wrong IP stored in length ")
+        }
+
+        let oid_len = self.oid.len();
+
+        total_len = total_len + ip_addr_len + oid_len;
+
+        total_len
+
     }
 
     /// Return the byte representation of the TLV.
     pub fn bytes(&self) -> Vec<u8> {
         // TODO: Implement
-        todo!()
+
+        let mut type_rep = self.tlv_type as u8;
+
+        type_rep = type_rep << 1;
+
+        let last_bit_set = self.len() & 0b100000000;
+
+        if last_bit_set !=0 {
+            type_rep = type_rep | 0b000000001;
+        }
+
+        let len_rep = (self.len() & 0xFF) as u8;
+
+        let mut mng_add_str_len_rep = 0 as u8;
+
+        let mng_add_sub_rep = 1 as u8;
+
+        let mut ip_addr = 0 as u8;
+
+        if self.value.is_ipv4(){
+           ip_addr = 4;
+           mng_add_str_len_rep = 4+1;
+        }
+        else if self.value.is_ipv6(){
+            ip_addr = 16;
+            mng_add_str_len_rep = 16+1;
+        }
+        else {
+            panic!("Wrong IP stored in bytes ")
+        }
+
+        let if_num_sub_rep = self.subtype.clone() as u8;
+
+        let byte4 = (self.interface_number & 0xFF) as u8;
+        let byte3 = ((self.interface_number & 0xFF00) >> 8) as u8;
+        let byte2 = ((self.interface_number & 0xFF0000) >> 16) as u8;
+        let byte1 = ((self.interface_number & 0xFF000000) >> 24) as u8;
+
+        let oid_str_len_rep = 1 as u8;
+
+        let mut oid_rep = self.oid.clone();
+
+        let mut mng_add_rep = vec![type_rep,len_rep,mng_add_str_len_rep,mng_add_sub_rep,ip_addr,if_num_sub_rep,byte1,byte2,byte3,byte4,oid_str_len_rep];
+
+        mng_add_rep.append(&mut oid_rep);
+
+        mng_add_rep
+
+
     }
 }
 #[cfg(test)]

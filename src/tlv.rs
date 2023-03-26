@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::fmt::Display;
 
 pub mod chassisid_tlv;
@@ -96,14 +96,36 @@ impl Display for Tlv {
     /// (See also the test_display tests in the corresponding files)
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: Implement
-        write!(f, "{}", todo!())
+        match self{
+            Tlv::ChassisId(tlv) => write!(f, "{}",tlv),
+            Tlv::EndOfLldpdu(tlv) => write!(f, "{}",tlv),
+            Tlv::ManagementAddress(tlv) => write!(f, "{}",tlv),
+            Tlv::OrganizationallySpecific(tlv) => write!(f, "{}",tlv),
+            Tlv::PortId(tlv) => write!(f, "{}",tlv),
+            Tlv::PortDescription(tlv) => write!(f, "{}",tlv),
+            Tlv::SystemDescription(tlv) => write!(f, "{}",tlv),
+            Tlv::SystemName(tlv) => write!(f, "{}",tlv),
+            Tlv::SystemCapabilities(tlv) => write!(f, "{}",tlv),
+            Tlv::Ttl(tlv) => write!(f, "{}",tlv),
+        }
     }
 }
 
 impl Tlv {
     pub fn get_type(&self) -> TlvType {
         // TODO: Implement
-        todo!()
+        match self{
+            Tlv::ChassisId(tlv) => tlv.tlv_type,
+            Tlv::EndOfLldpdu(tlv) => tlv.tlv_type,
+            Tlv::ManagementAddress(tlv) => tlv.tlv_type,
+            Tlv::OrganizationallySpecific(tlv) => tlv.tlv_type,
+            Tlv::PortId(tlv) => tlv.tlv_type,
+            Tlv::PortDescription(tlv) => tlv.tlv_type,
+            Tlv::SystemDescription(tlv) => tlv.tlv_type,
+            Tlv::SystemName(tlv) => tlv.tlv_type,
+            Tlv::SystemCapabilities(tlv) => tlv.tlv_type,
+            Tlv::Ttl(tlv) => tlv.tlv_type,
+        }
     }
 
     /// Return the byte representation of the TLV.
@@ -121,7 +143,18 @@ impl Tlv {
     /// When called on this TLV, this method should return `b"\x06\x02\x00\x3c".to_vec()`.
     pub fn bytes(&self) -> Vec<u8> {
         // TODO: Implement
-        todo!()
+        match self{
+            Tlv::ChassisId(tlv) => tlv.bytes(),
+            Tlv::EndOfLldpdu(tlv) => tlv.bytes(),
+            Tlv::ManagementAddress(tlv) => tlv.bytes(),
+            Tlv::OrganizationallySpecific(tlv) => tlv.bytes(),
+            Tlv::PortId(tlv) => tlv.bytes(),
+            Tlv::PortDescription(tlv) => tlv.bytes(),
+            Tlv::SystemDescription(tlv) => tlv.bytes(),
+            Tlv::SystemName(tlv) => tlv.bytes(),
+            Tlv::SystemCapabilities(tlv) => tlv.bytes(),
+            Tlv::Ttl(tlv) => tlv.bytes(),
+        }
     }
 
     /// Get the length of a packed TLV.
@@ -129,7 +162,7 @@ impl Tlv {
     /// Extracts the relevant bytes from "data" and returns them.
     pub fn get_length(bytes: &[u8]) -> u16 {
         // TODO: Implement
-        todo!()
+        bytes[..].len() as u16
     }
 
     ///Create a Tlv instance from raw bytes.
@@ -140,6 +173,24 @@ impl Tlv {
     /// subclass.
     pub fn from_bytes(bytes: &[u8]) -> Tlv {
         // TODO: Implement
-        todo!()
+        let mut type_value: u8 = bytes[0];
+        type_value = bytes[0] & 0b11111110;
+
+        type_value = type_value >> 1;
+
+        let type_value: TlvType = type_value.try_into().unwrap();
+
+        match type_value{
+            TlvType::ChassisId => Tlv::ChassisId((ChassisIdTLV::new_from_bytes(bytes))),
+            TlvType::PortId=> Tlv::PortId((PortIdTLV::new_from_bytes(bytes))),
+            TlvType::Ttl => Tlv::Ttl((TtlTLV::new_from_bytes(bytes))),
+            TlvType::EndOfLLDPDU => Tlv::EndOfLldpdu((EndOfLLDPDUTLV::new_from_bytes(bytes))),
+            TlvType::PortDescription => Tlv::PortDescription((PortDescriptionTLV::new_from_bytes(bytes))),
+            TlvType::SystemName => Tlv::SystemName((SystemNameTLV::new_from_bytes(bytes))),
+            TlvType::SystemDescription => Tlv::SystemDescription((SystemDescriptionTLV::new_from_bytes(bytes))),
+            TlvType::SystemCapabilities => Tlv::SystemCapabilities((SystemCapabilitiesTLV::new_from_bytes(bytes))),
+            TlvType::ManagementAddress => Tlv::ManagementAddress((ManagementAddressTLV::new_from_bytes(bytes))),
+            TlvType::OrganizationallySpecific => Tlv::OrganizationallySpecific((OrganizationallySpecificTLV::new_from_bytes(bytes))),
+        }
     }
 }
