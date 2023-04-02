@@ -21,15 +21,25 @@ use std::fmt::Display;
 pub struct Lldpdu {
     // TODO: Implement
     tlvs: Vec<Tlv>,
-    
-
+    end: bool,
+    size: usize,
 }
 
 impl Display for Lldpdu {
     /// Write a printable representation of the LLDPDU
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: Implement
-        write!(f, "{}", todo!())
+        let mut res = String::from("LLDPDU(");
+
+        for (index, tlv) in self.tlvs.iter().enumerate() {
+            res.push_str(&format!("{}", tlv));
+            if index != self.tlvs.len() - 1 {
+                res.push_str(&", ")
+            }
+        }
+        res.push_str(&")");
+
+        write!(f, "{}", res)
     }
 }
 
@@ -40,7 +50,14 @@ impl Lldpdu {
     /// Further validity checks are left to the subclass.
     pub fn from_bytes(data: &[u8]) -> Self {
         // TODO: Implement
-        todo!()
+        let mut lldpdu = Lldpdu {
+            tlvs: vec![],
+            end: false,
+            size: 0,
+        };
+        
+        
+
     }
 
     /// Constructor
