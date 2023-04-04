@@ -170,7 +170,7 @@ impl SystemCapabilitiesTLV {
         let sys_cap = (b2 | b3) as u16;
         let enabled_cap = (b4 | b5) as u16;
 
-        let total_value = (((sys_cap << 16) as u32) | (enabled_cap as u32)) as u32;
+        let total_value = ((sys_cap << 16) as u32) | (enabled_cap as u32);
 
         let res = sys_cap & enabled_cap; 
 
