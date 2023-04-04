@@ -158,11 +158,17 @@ impl ManagementAddressTLV {
 
         type_value = type_value >> 1;
 
+        if type_value != TlvType::ManagementAddress as u8 {
+            panic!("Wrong TLV Type for ManagementAddress_Tlv");
+        }
+
         let mut length_value = bytes[1] as u16;
 
         if last_bit != 0{
             length_value= length_value + 256;
         }
+
+        assert!(length_value < 512, "length overflow");
 
         let mng_add_str_len = bytes[2];
 
@@ -193,7 +199,9 @@ impl ManagementAddressTLV {
                 panic!("Management Address IP Address Error!")
             }
 
-        let inf_num_subtype_index = (2 + mng_add_str_len) as usize;
+        let length = (bytes[2] - 1) as usize;
+
+        let inf_num_subtype_index = bytes[4 + length] as usize;
 
         let inf_num_subtype = IFNumberingSubtype::try_from(bytes[inf_num_subtype_index]).unwrap();
 
