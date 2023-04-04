@@ -1,5 +1,12 @@
-use crate::tlv::Tlv;
-use std::fmt::Display;
+use crate::tlv::{
+    chassisid_tlv::ChassisIdTLV, eolldpdu_tlv::EndOfLLDPDUTLV,
+    managementaddress_tlv::ManagementAddressTLV,
+    organizationallyspecific_tlv::OrganizationallySpecificTLV,
+    portdescription_tlv::PortDescriptionTLV, portid_tlv::PortIdTLV,
+    systemcapabilities_tlv::SystemCapabilitiesTLV, systemdescription_tlv::SystemDescriptionTLV,
+    systemname_tlv::SystemNameTLV, ttl_tlv::TtlTLV, Tlv, TlvType,
+};
+use std::{convert::TryFrom, fmt::Display};
 
 /// LLDP Data Unit
 ///
@@ -19,27 +26,25 @@ use std::fmt::Display;
 ///     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-...-+-+-+-+-+-+-+-+
 #[derive(Debug, Clone)]
 pub struct Lldpdu {
-    // TODO: Implement
+    has_end: bool,
     tlvs: Vec<Tlv>,
-    end: bool,
     size: usize,
 }
 
 impl Display for Lldpdu {
     /// Write a printable representation of the LLDPDU
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO: Implement
-        let mut res = String::from("LLDPDU(");
+        let mut result = String::from("LLDPDU(");
 
         for (index, tlv) in self.tlvs.iter().enumerate() {
-            res.push_str(&format!("{}", tlv));
+            result.push_str(&format!("{}", tlv));
             if index != self.tlvs.len() - 1 {
-                res.push_str(&", ")
+                result.push_str(&", ")
             }
         }
-        res.push_str(&")");
+        result.push_str(&")");
 
-        write!(f, "{}", res)
+        write!(f, "{}", result)
     }
 }
 
@@ -49,23 +54,71 @@ impl Lldpdu {
     /// Panics if a parsed TLV is of unknown type.
     /// Further validity checks are left to the subclass.
     pub fn from_bytes(data: &[u8]) -> Self {
-        // TODO: Implement
         let mut lldpdu = Lldpdu {
             tlvs: vec![],
-            end: false,
+            has_end: false,
             size: 0,
         };
-        
-        
 
+        let mut index = 0;
+
+        while index < data.len() {
+            let mut type_field = data[index] & 0b11111110;
+            type_field = type_field >> 1;
+
+            let type_field = match TlvType::try_from(type_field) {
+                Ok(value) => value,
+                Err(_) => panic!("Tlv Type invalid"),
+            };
+
+            let mut length = data[index + 1] as usize;
+            if data[index] & 1 == 1 {
+                length += 1 << 9;
+            }
+
+            let bytes = &data[index..index + 2 + length];
+
+            let tlv = match type_field {
+                TlvType::ChassisId => Tlv::ChassisId(ChassisIdTLV::new_from_bytes(bytes)),
+                TlvType::EndOfLLDPDU => Tlv::EndOfLldpdu(EndOfLLDPDUTLV::new_from_bytes(bytes)),
+                TlvType::PortId => Tlv::PortId(PortIdTLV::new_from_bytes(bytes)),
+                TlvType::Ttl => Tlv::Ttl(TtlTLV::new_from_bytes(bytes)),
+                TlvType::PortDescription => {
+                    Tlv::PortDescription(PortDescriptionTLV::new_from_bytes(bytes))
+                }
+                TlvType::SystemName => Tlv::SystemName(SystemNameTLV::new_from_bytes(bytes)),
+                TlvType::SystemDescription => {
+                    Tlv::SystemDescription(SystemDescriptionTLV::new_from_bytes(bytes))
+                }
+                TlvType::SystemCapabilities => {
+                    Tlv::SystemCapabilities(SystemCapabilitiesTLV::new_from_bytes(bytes))
+                }
+                TlvType::ManagementAddress => {
+                    Tlv::ManagementAddress(ManagementAddressTLV::new_from_bytes(bytes))
+                }
+                TlvType::OrganizationallySpecific => Tlv::OrganizationallySpecific(
+                    OrganizationallySpecificTLV::new_from_bytes(bytes),
+                ),
+            };
+
+            lldpdu.append(tlv);
+
+            index += 2 + length;
+        }
+
+        lldpdu
     }
 
     /// Constructor
     ///
     /// Creates a `Lldpdu`, initialized with [Tlv]s from `init_tlvs`.
     pub fn new(init_tlvs: Vec<Tlv>) -> Lldpdu {
-        // TODO: Implement
-        let mut lldpdu: Lldpdu = todo!();
+        let mut lldpdu: Lldpdu = Lldpdu {
+            tlvs: vec![],
+            has_end: false,
+            size: 0,
+        };
+
         for tlv in init_tlvs {
             lldpdu.append(tlv);
         }
@@ -80,47 +133,88 @@ impl Lldpdu {
     /// If adding the TLV makes the LLDPDU invalid (e.g. by adding a TLV after an EndOfLLDPDU TLV) it should panic.
     /// Conditions for specific TLVs are detailed in each TLV's class description.
     pub fn append(&mut self, tlv: Tlv) {
-        // TODO: Implement error checks
+        let tlv_size = tlv.bytes().len();
 
-        // TODO: Store tlv in Lldpdu struct
+        if self.size + tlv_size > 1500 {
+            panic!("tlv size overflow");
+        }
+
+        if self.has_end {
+            panic!("Cannot add a tlv after endoflldpdu_tlv");
+        }
+
+        let type_field = tlv.get_type();
+
+        if self.len() == 0 && type_field != TlvType::ChassisId {
+            panic!("first tlv should be a chassisid_tlv");
+        }
+
+        if self.len() == 1 && type_field != TlvType::PortId {
+            panic!("second tlv should be a portid_tlv");
+        }
+
+        if self.len() == 2 && type_field != TlvType::Ttl {
+            panic!("third tlv should be a ttl_tlv");
+        }
+
+        if self.len() >= 3
+            && (type_field == TlvType::ChassisId
+                || type_field == TlvType::PortId
+                || type_field == TlvType::Ttl)
+        {
+            panic!("trying to add duplicate mandatory fields");
+        }
+
+        if type_field == TlvType::EndOfLLDPDU {
+            if self.len() < 3 {
+                panic!("There should atleast be three mandatory tlvs");
+            }
+            self.has_end = true;
+        }
+
+        self.tlvs.push(tlv);
+        self.size += tlv_size;
     }
 
     /// Determine if the LLDPDU is complete
     ///
     /// An LLDPDU is complete when it includes at least the mandatory TLVs (Chassis ID, Port ID, TTL).
     pub fn complete(&self) -> bool {
-        // TODO: Implement
-        todo!()
+        self.has_end
     }
 
     /// Determine if the LLDPDU is valid
     pub fn is_valid(&self) -> bool {
-        // TODO: Implement
-        todo!()
+        true
     }
 
     /// Get the number of TLVs in the LLDPDU
     pub fn len(&self) -> usize {
-        // TODO: Implement
-        todo!()
+        self.tlvs.len()
     }
 
     /// Check if LLDPDU is empty
     pub fn is_empty(&self) -> bool {
-        // TODO: Implement
-        todo!()
+        self.len() == 0
     }
 
     /// Get the byte representation of the LLDPDU
     pub fn bytes(&self) -> Vec<u8> {
-        // TODO: Implement
-        todo!()
+        let mut result: Vec<u8> = Vec::new();
+
+        for tlv in &self.tlvs {
+            result.extend_from_slice(&tlv.bytes());
+        }
+
+        result
     }
 
     /// Get the TLV at position "item"
     pub fn getitem(&self, item: usize) -> &Tlv {
-        // TODO: Implement
-        todo!()
+        match self.tlvs.get(item) {
+            Some(value) => value,
+            None => panic!("index out of bound"),
+        }
     }
 }
 
@@ -398,6 +492,7 @@ mod tests {
         let lldpdu = Lldpdu::from_bytes(
             b"\x02\x08\x07Voyager\x04\x06\x0710743\x06\x02\x00\xff\x08\x0bEngineering\x00\x00",
         );
+        println!("{}", lldpdu);
         assert_eq!(lldpdu.len(), 5);
     }
 

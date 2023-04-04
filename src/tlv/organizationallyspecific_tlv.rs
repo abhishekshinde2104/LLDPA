@@ -127,17 +127,13 @@ impl OrganizationallySpecificTLV {
 
         let mut org_spec_tlv =  vec![type_rep,len_rep];
 
-        let mut oui_rep = self.oui;
-
-        org_spec_tlv.append(&mut oui_rep);
+        org_spec_tlv.extend_from_slice(&self.oui);
 
         let subtype_rep = self.subtype.clone();
 
         org_spec_tlv.push(subtype_rep);
 
-        let mut org_info_rep = self.value;
-
-        org_spec_tlv.append(&mut org_info_rep);
+        org_spec_tlv.extend_from_slice(&self.value);
 
         org_spec_tlv
         
