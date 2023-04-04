@@ -167,8 +167,8 @@ impl SystemCapabilitiesTLV {
         let b4= ((bytes[4] as u16) << 8) as u16;
         let b5= bytes[5] as u16;
 
-        let sys_cap = (b2 | b3) as u16;
-        let enabled_cap = (b4 | b5) as u16;
+        let sys_cap = (b2 | b3) as u32;
+        let enabled_cap = (b4 | b5) as u32;
 
         let total_value = ((sys_cap << 16) as u32) | (enabled_cap as u32);
 
