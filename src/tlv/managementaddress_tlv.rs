@@ -235,53 +235,47 @@ impl ManagementAddressTLV {
     /// Return the byte representation of the TLV.
     pub fn bytes(&self) -> Vec<u8> {
         // TODO: Implement
+        let mut type_field = (self.tlv_type as u8) << 1;
 
-        let mut type_rep = self.tlv_type as u8;
-
-        type_rep = type_rep << 1;
-
-        let last_bit_set = self.len() & 0b100000000;
-
-        if last_bit_set !=0 {
-            type_rep = type_rep | 0b000000001;
+        let length_field = self.len();
+        if length_field & (1 << 9) == 1 {
+            type_field |= 1;
         }
 
-        let len_rep = (self.len() & 0xFF) as u8;
+        let length_field = length_field as u8;
 
-        let mut mng_add_str_len_rep = 0 as u8;
+        let mut result: Vec<u8> = Vec::new();
+        result.push(type_field);
+        result.push(length_field);
 
-        let mng_add_sub_rep = 1 as u8;
+        let mgmt_address_length = 1 + if self.value.is_ipv4() { 4 } else { 16 };
+        result.push(mgmt_address_length);
 
-        let mut ip_addr = 0 as u8;
+        let mgmt_address_subtype = if self.value.is_ipv4() { 1 } else { 2 };
+        result.push(mgmt_address_subtype);
 
-        if self.value.is_ipv4(){
-           ip_addr = 4;
-           mng_add_str_len_rep = 4+1;
+        if let IpAddr::V4(address) = self.value {
+            result.extend_from_slice(&address.octets());
         }
-        else if self.value.is_ipv6(){
-            ip_addr = 16;
-            mng_add_str_len_rep = 16+1;
-        }
-        else {
-            panic!("Wrong IP stored in bytes ")
+        if let IpAddr::V6(address) = self.value {
+            result.extend_from_slice(&address.octets());
         }
 
-        let if_num_sub_rep = self.subtype.clone() as u8;
+        let ifnumber_subtype = self.subtype.clone() as u8;
+        result.push(ifnumber_subtype);
 
-        let byte4 = (self.interface_number & 0xFF) as u8;
-        let byte3 = ((self.interface_number & 0xFF00) >> 8) as u8;
-        let byte2 = ((self.interface_number & 0xFF0000) >> 16) as u8;
-        let byte1 = ((self.interface_number & 0xFF000000) >> 24) as u8;
+        let mask: u32 = 0xFF;
+        result.push(((self.interface_number & (mask << 24)) >> 24) as u8);
+        result.push(((self.interface_number & (mask << 16)) >> 16) as u8);
+        result.push(((self.interface_number & (mask << 8)) >> 8) as u8);
+        result.push((self.interface_number & mask) as u8);
 
-        let oid_str_len_rep = 1 as u8;
+        let oid_length = self.oid.len() as u8;
+        result.push(oid_length);
 
-        let mut oid_rep = self.oid.clone();
+        result.extend_from_slice(&self.oid);
 
-        let mut mng_add_rep = vec![type_rep,len_rep,mng_add_str_len_rep,mng_add_sub_rep,ip_addr,if_num_sub_rep,byte1,byte2,byte3,byte4,oid_str_len_rep];
-
-        mng_add_rep.append(&mut oid_rep);
-
-        mng_add_rep
+        result
 
 
     }
