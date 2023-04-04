@@ -50,10 +50,10 @@ impl OrganizationallySpecificTLV {
     pub fn new(oui: Vec<u8>, subtype: u8, value: Vec<u8>) -> OrganizationallySpecificTLV {
         // TODO: Implement
         OrganizationallySpecificTLV {
-            tlv_type: todo!(),
-            oui: todo!(),
-            subtype: todo!(),
-            value: todo!(),
+            tlv_type: TlvType::OrganizationallySpecific,
+            oui: oui,
+            subtype: subtype,
+            value: value,
         }
     }
 
@@ -62,19 +62,77 @@ impl OrganizationallySpecificTLV {
     /// Panics if the provided TLV contains errors (e.g. has the wrong type).
     pub fn new_from_bytes(bytes: &[u8]) -> OrganizationallySpecificTLV {
         // TODO: Implement
-        todo!()
+        let mut type_value: u8 = bytes[0];
+        type_value = bytes[0] & 0b11111110;
+
+        let last_bit = bytes[0] & 0b00000001;
+
+        type_value = type_value >> 1;
+
+        let mut length_value = bytes[1] as u16;
+
+        if last_bit != 0{
+            length_value= length_value + 256;
+        }
+
+        let b1 = bytes[2] as u8;
+        let b2 = bytes[3]  as u8;
+        let b3 = bytes[4] as u8;
+
+        let org_uni_id_vec = vec![b1,b2,b3];
+
+        let org_def_subtype = bytes[5] as u8;
+
+        let org_def_info = bytes[6..].to_vec();
+
+
+        OrganizationallySpecificTLV::new(org_uni_id_vec, org_def_subtype, org_def_info)
     }
 
     /// Return the length of the TLV value
     pub fn len(&self) -> usize {
         // TODO: Implement
-        todo!()
+        let mut total_len = 4 as usize;
+
+        let value_len = self.value.len();
+
+        total_len = total_len + value_len;
+
+        total_len
     }
 
     /// Return the byte representation of the TLV.
     pub fn bytes(&self) -> Vec<u8> {
         // TODO: Implement
-        todo!()
+        let mut type_rep = self.tlv_type as u8;
+
+        type_rep = type_rep << 1;
+
+        let last_bit_set = self.len() & 0b100000000;
+
+        if last_bit_set !=0 {
+            type_rep = type_rep | 0b000000001;
+        }
+
+        let len_rep = (self.len() & 0xFF) as u8;
+
+        let mut org_spec_tlv =  vec![type_rep,len_rep];
+
+        let mut oui_rep = self.oui;
+
+        org_spec_tlv.append(&mut oui_rep);
+
+        let subtype_rep = self.subtype.clone();
+
+        org_spec_tlv.push(subtype_rep);
+
+        let mut org_info_rep = self.value;
+
+        org_spec_tlv.append(&mut org_info_rep);
+
+        org_spec_tlv
+        
+        
     }
 }
 
