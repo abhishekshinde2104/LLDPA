@@ -1,5 +1,6 @@
 use crate::lldpdu::Lldpdu;
 use crate::tlv::chassisid_tlv::*;
+use crate::tlv::eolldpdu_tlv::EndOfLLDPDUTLV;
 use crate::tlv::portid_tlv::*;
 use crate::tlv::ttl_tlv::TtlTLV;
 use crate::tlv::Tlv;
@@ -8,6 +9,7 @@ use std::time::Instant;
 extern crate pnet;
 use pnet::datalink::Channel::Ethernet;
 use pnet::datalink::{self, DataLinkReceiver, DataLinkSender, MacAddr, NetworkInterface};
+use pnet::packet::ethernet::EtherTypes;
 use pnet::packet::ethernet::{EtherType, EthernetPacket, MutableEthernetPacket};
 use pnet::packet::Packet;
 
@@ -56,7 +58,28 @@ impl LLDPAgent {
             Some((tx, rx)) => (tx, rx),
             None => {
                 // Open a pnet channel suitable for transmitting LLDP frames.
-                todo!()
+                let interface_name = interface_name.clone();
+                let interface_names_match = |iface: &NetworkInterface| iface.name == interface_name;
+
+                // Find the network interface with the provided name
+                let interfaces = datalink::interfaces();
+                let interface = interfaces
+                    .into_iter()
+                    .filter(interface_names_match)
+                    .next()
+                    .unwrap();
+
+                // Create a new channel, dealing with layer 2 packets
+                let (tx, rx) = match datalink::channel(&interface, Default::default()) {
+                    Ok(Ethernet(tx, rx)) => (tx, rx),
+                    Ok(_) => panic!("Unhandled channel type"),
+                    Err(e) => panic!(
+                        "An error occurred when creating the datalink channel: {}",
+                        e
+                    ),
+                };
+
+                (tx, rx)
             }
         };
 
@@ -86,18 +109,40 @@ impl LLDPAgent {
     /// If `run_once` is set to `true`, stop after the first LLDPDU has been received.
     pub fn run(&mut self, run_once: bool) {
         let mut t_previous = Instant::now();
+
+        let valid_destination = vec![
+            MacAddr(0x01, 0x80, 0xc2, 0x00, 0x00, 0x00),
+            MacAddr(0x01, 0x80, 0xc2, 0x00, 0x00, 0x03),
+            MacAddr(0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e),
+        ];
+
         loop {
             // Get the next frame
             match self.channel.1.next() {
                 Ok(frame) => {
                     // Frame has been received
+                    let ether_frame = match EthernetPacket::new(frame) {
+                        Some(frame) => frame,
+                        None => continue,
+                    };
 
-                    // Check format and extract LLDPDU (raw bytes)
-                    // TODO: Implement
+                    let source_mac = ether_frame.get_source();
+                    if source_mac == self.mac_address {
+                        continue;
+                    }
+
+                    let destination_mac = ether_frame.get_destination();
+                    if !valid_destination.iter().any(|mac| mac == &destination_mac) {
+                        continue;
+                    }
+
+                    let ether_type = ether_frame.get_ethertype();
+                    if ether_type != EtherTypes::Lldp {
+                        continue;
+                    }
 
                     // Instantiate Lldpdu struct from raw bytes
-                    // TODO: Implement
-                    let lldpdu: Lldpdu = todo!();
+                    let lldpdu: Lldpdu = Lldpdu::from_bytes(ether_frame.payload());
 
                     // Log contents
                     self.logger.log(&format!("{}", lldpdu));
@@ -130,15 +175,38 @@ impl LLDPAgent {
     /// * a TTL of 60 seconds
     pub fn announce(&mut self) {
         // Construct LLDPDU
-        // TODO: Implement
-        let lldpdu: Lldpdu = todo!();
+        let init_tlvs: Vec<Tlv> = vec![
+            Tlv::ChassisId(ChassisIdTLV::new(
+                ChassisIdSubType::MacAddress,
+                ChassisIdValue::Mac(self.mac_address.octets().to_vec()),
+            )),
+            Tlv::PortId(PortIdTLV::new(
+                PortIdSubtype::InterfaceName,
+                PortIdValue::Other(self.interface_name.clone()),
+            )),
+            Tlv::Ttl(TtlTLV::new(60)),
+            // Tlv::EndOfLldpdu(EndOfLLDPDUTLV::new()),
+        ];
+
+        let lldpdu: Lldpdu = Lldpdu::new(init_tlvs);
 
         // Construct Ethernet Frame
-        // TODO: Implement
-        let frame = todo!();
+        let mut header = [0u8; 14];
+        let mut ethernet_header = MutableEthernetPacket::new(&mut header[..]).unwrap();
+
+        let source = self.mac_address;
+        ethernet_header.set_source(source);
+
+        let dest = MacAddr(0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e);
+        ethernet_header.set_destination(dest);
+
+        ethernet_header.set_ethertype(EtherTypes::Lldp);
+
+        let mut frame = header.to_vec();
+        frame.extend_from_slice(&lldpdu.bytes());
 
         // Send frame
-        match self.channel.0.send_to(frame, None) {
+        match self.channel.0.send_to(&frame, None) {
             Some(Ok(_)) => (),
             Some(Err(err)) => panic!("ERROR: Announce failed: {:?}", err),
             None => (),
