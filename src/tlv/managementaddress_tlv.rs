@@ -117,7 +117,14 @@ impl Display for ManagementAddressTLV {
     /// Write a printable representation of the TLV object.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: Implement
-        write!(f, "{}", todo!())
+        let mut oid_string = String::new();
+        for i in self.oid.iter() {
+            let mut string = format!("{:X}", i);
+            string = format!("{:0>2}", string);
+            oid_string.push_str(&string);
+        }
+
+        write!(f,"ManagementAddressTLV(\"{}\", {}, \"{}\")",self.value.to_string(),self.interface_number,oid_string)
     }
 }
 
