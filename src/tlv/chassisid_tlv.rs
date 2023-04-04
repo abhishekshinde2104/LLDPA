@@ -133,23 +133,27 @@ pub struct ChassisIdTLV {
 impl Display for ChassisIdTLV {
     /// Write a printable representation of the TLV object.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO: Implement
         let value = match &self.value {
             ChassisIdValue::Mac(mac) => {
-                let mut res = String::new();
-                for (ind, i) in mac.iter().enumerate() {
-                    res.push_str(&format!("{:X}", i));
-                    if ind != mac.len() - 1 {
-                        res.push_str(&":");
+                let mut result = String::new();
+                for (index, i) in mac.iter().enumerate() {
+                    result.push_str(&format!("{:X}", i));
+                    if index != mac.len() - 1 {
+                        result.push_str(&":");
                     }
                 }
-                res
+                result
             }
             ChassisIdValue::Other(s) => s.clone(),
-            ChassisIdValue::IpAddress(ip_addr) => ip_addr.to_string(),
+            ChassisIdValue::IpAddress(addr) => addr.to_string(),
         };
 
-        write!(f,"ChassisIdTLV({}, \"{}\")",self.subtype.clone() as u8,value)
+        write!(
+            f,
+            "ChassisIdTLV({}, \"{}\")",
+            self.subtype.clone() as u8,
+            value
+        )
     }
 }
 
@@ -173,129 +177,104 @@ impl ChassisIdTLV {
     ///
     /// Panics if the provided TLV contains errors (e.g. has the wrong type).
     pub fn new_from_bytes(bytes: &[u8]) -> ChassisIdTLV {
-        // TODO: Implement
-        let mut type_value: u8 = bytes[0];
-        type_value = bytes[0] & 0b11111110;
+        let mut type_field = bytes[0] & 0b11111110;
+        type_field = type_field >> 1;
 
-        let last_bit = bytes[0] & 0b00000001;
-
-        type_value = type_value >> 1;
-
-        let mut length_value = bytes[1] as u16;
-
-        if last_bit != 0{
-            length_value= length_value + 256;
+        if type_field != TlvType::ChassisId as u8 {
+            panic!("Wrong TLV Type for ChassisId_Tlv");
         }
 
-        let subtype_value:ChassisIdSubType = match bytes[2].try_into(){
+        let mut length = bytes[1] as usize;
+        if bytes[0] & 1 == 1 {
+            length += 1 << 9;
+        }
+
+        assert_eq!(length, bytes[2..].len());
+
+        let subtype = bytes[2];
+
+        let subtype = match ChassisIdSubType::try_from(subtype) {
             Ok(subtype) => subtype,
-            Err(_) => panic!("Chassis Id subtype Panic"),
+            Err(_) => panic!("Invalid ChassisSubtype"),
         };
 
-        let mac_value;
-
-        let ip_addr;
-
-        let other_value:String;
-
-        let chassis_id_value;
-
-        if (subtype_value.clone() as u8) == 4{
-            assert_eq!(bytes[3..].len(), 6);
-            mac_value = bytes[3..].to_vec();
-            chassis_id_value = ChassisIdValue::Mac(mac_value);
-        }
-
-        else if (subtype_value.clone() as u8) == 5{
-            let ip_first_byte = bytes[3];
-
-            if ip_first_byte == 1{
-                assert_eq!(bytes[4..].len(), 4);
-                let ip_addr_bytes:[u8;4] = bytes[4..].try_into().unwrap();
-                ip_addr = IpAddr::from(ip_addr_bytes);
-                chassis_id_value = ChassisIdValue::IpAddress(ip_addr);
-                
+        let value = match subtype {
+            ChassisIdSubType::MacAddress => {
+                assert_eq!(6, bytes[3..].len());
+                ChassisIdValue::Mac(bytes[3..].to_vec())
             }
-            else if ip_first_byte == 2{
-                assert_eq!(bytes[4..].len(), 16);
-                let ip_addr_bytes:[u8;16] = bytes[4..].try_into().unwrap();
-                ip_addr = IpAddr::from(ip_addr_bytes);
-                chassis_id_value = ChassisIdValue::IpAddress(ip_addr);    
-            
-            } 
-            else {
-                panic!("Chassis Id IP Address Error!")
-            }
-        }
+            ChassisIdSubType::NetworkAddress => match bytes[3] {
+                1u8 => {
+                    assert_eq!(4, bytes[4..].len());
+                    let addr: [u8; 4] = bytes[4..8].try_into().unwrap();
+                    ChassisIdValue::IpAddress(IpAddr::from(addr))
+                }
+                2u8 => {
+                    assert_eq!(16, bytes[4..].len());
+                    let addr: [u8; 16] = bytes[4..20].try_into().unwrap();
+                    ChassisIdValue::IpAddress(IpAddr::from(addr))
+                }
+                _ => panic!("Expected IP Address specifier"),
+            },
+            _ => match String::from_utf8(bytes[3..].to_vec()) {
+                Ok(value) => ChassisIdValue::Other(value),
+                Err(_) => panic!("Invlaid value for Chasis::Other type "),
+            },
+        };
 
-        else {
-            other_value = String::from_utf8(bytes[3..].to_vec()).unwrap();
-            chassis_id_value = ChassisIdValue::Other(other_value);
+        ChassisIdTLV {
+            tlv_type: TlvType::ChassisId,
+            subtype: subtype,
+            value: value,
         }
-
-        ChassisIdTLV::new(subtype_value, chassis_id_value)
     }
 
     /// Return the length of the TLV value
     pub fn len(&self) -> usize {
-        // TODO: Implement
-        let mut total_len = 1 as usize;
-
-        let value_len = match &self.value{
-                ChassisIdValue::Mac(_) => 6,
-                ChassisIdValue::IpAddress(ip_addr) => match ip_addr{
-                    IpAddr::V4(_) => 5,
-                    IpAddr::V6(_) => 17,
-                },
-                ChassisIdValue::Other(other) => other.len(),
-        };
-
-            total_len = total_len + value_len;
-
-            total_len
+        1 + match &self.value {
+            ChassisIdValue::Mac(_) => 6,
+            ChassisIdValue::Other(s) => s.len(),
+            ChassisIdValue::IpAddress(IpAddr::V4(_)) => 4 + 1,
+            ChassisIdValue::IpAddress(IpAddr::V6(_)) => 16 + 1,
+        }
     }
 
     /// Return the byte representation of the TLV.
     pub fn bytes(&self) -> Vec<u8> {
-        // TODO: Implement
-        let mut type_rep = self.tlv_type as u8;
+        let mut type_field = (self.tlv_type as u8) << 1;
 
-        type_rep = type_rep << 1;
-
-        let last_bit_set = self.len() & 0b100000000;
-
-        if last_bit_set !=0 {
-            type_rep = type_rep | 0b000000001;
+        let length_field = self.len();
+        if length_field & (1 << 9) == 1 {
+            type_field |= 1;
         }
 
-        let len_rep = (self.len() & 0xFF) as u8;
+        let length_field = length_field as u8;
 
-        let subtype_rep = self.subtype.clone() as u8;
+        let mut result: Vec<u8> = Vec::new();
+        result.push(type_field);
+        result.push(length_field);
 
-        //let value_rep = self.len() as u8;
+        let subtype_field = self.subtype.clone() as u8;
+        result.push(subtype_field);
 
-        let mut value_rep = match &self.value{
-            ChassisIdValue::Mac(mac_addr) => mac_addr.clone(),
-            ChassisIdValue::IpAddress(ip_addr) => match ip_addr {
-                IpAddr::V4(ip_addr) => ip_addr.octets().to_vec(),
-                IpAddr::V6(ip_addr) => ip_addr.octets().to_vec(),
-            } ,
-            ChassisIdValue::Other(other) => other.as_bytes().to_vec(),
+        let value_field = match &self.value {
+            ChassisIdValue::Mac(addr) => addr.clone(),
+            ChassisIdValue::Other(value) => value.as_bytes().to_vec(),
+            ChassisIdValue::IpAddress(IpAddr::V4(address)) => address.octets().to_vec(),
+            ChassisIdValue::IpAddress(IpAddr::V6(address)) => address.octets().to_vec(),
         };
 
-        if let ChassisIdValue::IpAddress(IpAddr::V4(_)) = self.value{
-            value_rep.insert(0, 1)
-        } 
-            
-        if let ChassisIdValue::IpAddress(IpAddr::V6(_)) = self.value {
-            value_rep.insert(0, 2);
+        if let ChassisIdValue::IpAddress(IpAddr::V4(_)) = self.value {
+            result.push(1);
         }
 
-        let mut chassis_id_rep = vec![type_rep,len_rep,subtype_rep];
-        chassis_id_rep.append(&mut value_rep);
+        if let ChassisIdValue::IpAddress(IpAddr::V6(_)) = self.value {
+            result.push(2);
+        }
 
-        chassis_id_rep
+        result.extend_from_slice(&value_field);
 
+        result
     }
 }
 
@@ -304,7 +283,7 @@ mod tests {
     use super::*;
     use crate::tlv::*;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-    //use std::net::{Ipv4Addr, Ipv6Addr};
+
     fn set_up() -> (ChassisIdTLV, ChassisIdSubType, ChassisIdValue) {
         let value: ChassisIdValue = ChassisIdValue::Other(String::from("Terok Nor"));
         let subtype: ChassisIdSubType = ChassisIdSubType::Local;
@@ -403,6 +382,7 @@ mod tests {
             ChassisIdSubType::NetworkAddress,
             ChassisIdValue::IpAddress(IpAddr::V4(value)),
         );
+
         assert_eq!(tlv.bytes(), b"\x02\x06\x05\x01\xc0\x00\x02\x64".to_vec());
     }
 
