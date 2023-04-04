@@ -162,71 +162,48 @@ impl ManagementAddressTLV {
             panic!("Wrong TLV Type for ManagementAddress_Tlv");
         }
 
-        let mut length_value = bytes[1] as u16;
-
-        if last_bit != 0{
-            length_value= length_value + 256;
+        let mut length = bytes[1] as usize;
+        if bytes[0] & 1 == 1 {
+            length += 1 << 9;
         }
+        assert!(length < 512, "length overflow");
 
-        assert!(length_value < 512, "length overflow");
+        let mgmt_add_length = bytes[2];
+        let mgmt_add_subtype = bytes[3];
 
-        let mng_add_str_len = bytes[2];
-
-        let mng_add_subtype = bytes[3];
-
-        let mut ip_addr = IpAddr::from([0,0,0,0]);
-
-        //We get ip address from bytes
-            if mng_add_subtype == 1{
-                if mng_add_str_len == 5{
-                    let ip_addr_bytes:[u8;4] = bytes[4..8].try_into().unwrap();
-                    ip_addr = IpAddr::from(ip_addr_bytes);
-                }
-                else {
-                    panic!("Management Address IPv4 Address Error!")
-                }
+        let address = match mgmt_add_subtype {
+            1u8 => {
+                assert_eq!(mgmt_add_length, 4 + 1);
+                let addr: [u8; 4] = bytes[4..8].try_into().unwrap();
+                IpAddr::from(addr)
             }
-            else if mng_add_subtype == 2 {
-                if mng_add_str_len == 17{
-                    let ip_addr_bytes:[u8;16] = bytes[4..20].try_into().unwrap();
-                    ip_addr = IpAddr::from(ip_addr_bytes);
-                }
-                else {
-                    panic!("Management Address IPv6 Address Error!")
-                }
+            2u8 => {
+                assert_eq!(mgmt_add_length, 16 + 1);
+                let addr: [u8; 16] = bytes[4..20].try_into().unwrap();
+                IpAddr::from(addr)
             }
-            else {
-                panic!("Management Address IP Address Error!")
-            }
+            _ => panic!("Unknown ManagementAddressSubtype"),
+        };
 
         let length = (bytes[2] - 1) as usize;
 
-        let inf_num_subtype_index = bytes[4 + length] as usize;
+        let ifsubtype = bytes[4 + length];
+        let ifsubtype = IFNumberingSubtype::try_from(ifsubtype).unwrap();
 
-        let inf_num_subtype = IFNumberingSubtype::try_from(bytes[inf_num_subtype_index]).unwrap();
+        let if_number_bytes = [
+            bytes[5 + length],
+            bytes[6 + length],
+            bytes[7 + length],
+            bytes[8 + length],
+        ];
+        let interface_number = u32::from_be_bytes(if_number_bytes);
 
-        let inf_num_oct_index = inf_num_subtype_index + 1;
+        let oid_length = bytes[9 + length] as usize;
+        assert!(oid_length < 129);
 
-        let inf_num_oct = &bytes[inf_num_oct_index..inf_num_oct_index+4];
+        let oid = bytes[(10 + length)..(10 + length + oid_length)].to_vec();
 
-        let mut if_num = 0 as u32;
-
-        if_num = ((inf_num_oct[0] as u32 )<<24) as u32;
-        if_num = if_num | ((inf_num_oct[1] as u32)<<16) as u32;
-        if_num = if_num | ((inf_num_oct[2] as u32)<<8) as u32;
-        if_num = if_num | ((inf_num_oct[3] as u32)) as u32;
-
-
-        let obj_str_len_index = inf_num_oct_index + 4;
-
-        let obj_str_len = bytes[obj_str_len_index];
-
-        let obj_iden_index = obj_str_len_index + 1;
-
-        let obj_iden = bytes[obj_iden_index..].to_vec();
-
-
-        ManagementAddressTLV::new(ip_addr, if_num, inf_num_subtype, obj_iden)
+        ManagementAddressTLV::new(address, interface_number, ifsubtype, oid)
     }
 
     /// Return the length of the TLV value
