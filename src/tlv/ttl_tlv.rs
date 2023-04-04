@@ -94,8 +94,8 @@ impl TtlTLV {
 
         let len_rep = (self.len() & 0xFF) as u8;
 
-        let byte1 = ((self.value & 0xFF)>> 8) as u8;
-        let byte2 = (self.value & 0xFF00) as u8;
+        let byte1 = ((self.value & 0xFF00)>> 8) as u8;
+        let byte2 = (self.value & 0x00FF) as u8;
 
         vec![type_rep,len_rep,byte1,byte2]
     }
