@@ -41,7 +41,16 @@ impl Display for OrganizationallySpecificTLV {
     /// Write a printable representation of the TLV object.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: Implement
-        write!(f, "{}", todo!())
+        let mut oui = String::new();
+        for i in &self.oui {
+            oui.push_str(&format!("{:X}", i));
+        }
+
+        let mut value = String::new();
+        for i in &self.value {
+            value.push_str(&format!("{:X}", i));
+        }
+        write!(f,"OrganizationallySpecificTLV(\"{}\", {}, \"{}\")",oui,self.subtype,value)
     }
 }
 
