@@ -120,9 +120,21 @@ impl SystemCapabilitiesTLV {
     ///        enabled (u16): Bitmap of enabled capabilities
     pub fn new(supported: u16, enabled: u16) -> SystemCapabilitiesTLV {
         // TODO: Implement
+        let mut mask = 1;
+
+        for _ in 0..16 {
+            if (supported & mask == 0) && (enabled & mask != 0) {
+                panic!("Invalid Settings");
+            }
+            mask <<= 1;
+        }
+
+        let mut value: u32 = (supported as u32) << 16;
+        value |= enabled as u32;
+
         SystemCapabilitiesTLV {
             tlv_type: TlvType::SystemCapabilities,
-            value: (( (supported as u32) << 16 ) | (enabled as u32)) as u32,
+            value: value,
         }
     }
 
@@ -138,11 +150,17 @@ impl SystemCapabilitiesTLV {
 
         type_value = type_value >> 1;
 
+        if type_value != TlvType::SystemCapabilities as u8 {
+            panic!("Wrong TLV Type for SystemCapabilities");
+        }
+
         let mut length_value = bytes[1] as u16;
 
         if last_bit != 0{
             length_value= length_value + 256;
         }
+
+        assert_eq!(length_value, 4, "length for SystemCapabilitiesTlv should be 4");
 
         let b2 = ((bytes[2] as u16) << 8) as u16;
         let b3 = bytes[3] as u16;
@@ -152,9 +170,9 @@ impl SystemCapabilitiesTLV {
         let sys_cap = (b2 | b3) as u16;
         let enabled_cap = (b4 | b5) as u16;
 
-        let total_value = (sys_cap+enabled_cap) as u32;
+        let total_value = (((sys_cap << 16) as u32) | (enabled_cap as u32)) as u32;
 
-        let res = sys_cap & enabled_cap;
+        let res = sys_cap & enabled_cap; 
 
         if res != enabled_cap{
             panic!("System Capabilities: System capabilities != Enabled Capabilities")
