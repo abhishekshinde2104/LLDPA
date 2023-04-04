@@ -63,6 +63,8 @@ impl TtlTLV {
             length_value= length_value + 256;
         }
 
+        assert_eq!(length_value, 2, "length should be 2 for TTL");
+
         let mut v = 0 as u16;
 
         v = (( (bytes[2] as u16) << 8) as u16) | v;
